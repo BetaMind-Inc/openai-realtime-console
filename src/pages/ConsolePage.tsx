@@ -15,6 +15,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 
 import { RealtimeClient } from '@openai/realtime-api-beta';
 import { ItemType } from '@openai/realtime-api-beta/dist/lib/client.js';
+import { GoogleMapsClient } from '../lib/googlemaps';
 import { WavRecorder, WavStreamPlayer } from '../lib/wavtools/index.js';
 import { instructions } from '../utils/conversation_config.js';
 import { WavRenderer } from '../utils/wav_renderer';
@@ -25,7 +26,7 @@ import { Toggle } from '../components/toggle/Toggle';
 import { Map } from '../components/Map';
 
 import './ConsolePage.scss';
-import { isJsxOpeningLikeElement } from 'typescript';
+import { isJsxOpeningLikeElement, OrganizeImportsMode } from 'typescript';
 
 /**
  * Type for result from get_weather() function call
@@ -68,6 +69,15 @@ export function ConsolePage() {
     localStorage.setItem('tmp::voice_api_key', apiKey);
   }
 
+  const googleMapApiKey =
+    localStorage.getItem('tmp::google_map_api_key') ||
+    prompt('Google Map API Key') ||
+    '';
+
+  if (googleMapApiKey !== '') {
+    localStorage.setItem('tmp::google_map_api_key', googleMapApiKey);
+  }
+
   /**
    * Instantiate:
    * - WavRecorder (speech input)
@@ -89,6 +99,11 @@ export function ConsolePage() {
             dangerouslyAllowAPIKeyInBrowser: true,
           }
     )
+  );
+  const googleMapsClientRef = useRef<GoogleMapsClient>(
+    new GoogleMapsClient({
+      apiKey: googleMapApiKey,
+    })
   );
 
   /**
@@ -120,8 +135,8 @@ export function ConsolePage() {
   const [isRecording, setIsRecording] = useState(false);
   const [memoryKv, setMemoryKv] = useState<{ [key: string]: any }>({});
   const [coords, setCoords] = useState<Coordinates | null>({
-    lat: 37.775593,
-    lng: -122.418137,
+    lat: 35.6894,
+    lng: 139.692,
   });
   const [marker, setMarker] = useState<Coordinates | null>(null);
 
@@ -147,13 +162,25 @@ export function ConsolePage() {
   }, []);
 
   /**
-   * When you click the API key
+   * When you click the OpenAI API key
    */
   const resetAPIKey = useCallback(() => {
     const apiKey = prompt('OpenAI API Key');
     if (apiKey !== null) {
       localStorage.clear();
       localStorage.setItem('tmp::voice_api_key', apiKey);
+      window.location.reload();
+    }
+  }, []);
+
+  /**
+   * When you click the Google Map API key
+   */
+  const resetGoogleMapAPIKey = useCallback(() => {
+    const apiKey = prompt('Google Map API Key');
+    if (apiKey !== null) {
+      localStorage.clear();
+      localStorage.setItem('tmp::google_map_api_key', apiKey);
       window.location.reload();
     }
   }, []);
@@ -268,6 +295,21 @@ export function ConsolePage() {
     }
     setCanPushToTalk(value === 'none');
   };
+
+  /**
+   * Debug for tool:
+   * For testing purposes, we can send debug message to client API client
+   */
+  const debug = useCallback(async () => {
+    const client = clientRef.current;
+
+    client.sendUserMessageContent([
+      {
+        type: `input_text`,
+        text: `赤レンガ倉庫からスーパー埼玉アリーナまでの経路を知りたいです！`,
+      },
+    ]);
+  }, []);
 
   /**
    * Auto-scroll the event logs
@@ -413,45 +455,83 @@ export function ConsolePage() {
     );
     client.addTool(
       {
-        name: 'get_weather',
-        description:
-          'Retrieves the weather for a given lat, lng coordinate pair. Specify a label for the location.',
+        name: 'get_coordinates',
+        description: 'Retrieves the coordinates for a given location.',
         parameters: {
           type: 'object',
           properties: {
-            lat: {
-              type: 'number',
-              description: 'Latitude',
-            },
-            lng: {
-              type: 'number',
-              description: 'Longitude',
-            },
-            location: {
+            textQuery: {
               type: 'string',
               description: 'Name of the location',
             },
           },
-          required: ['lat', 'lng', 'location'],
+          required: ['textQuery'],
         },
       },
-      async ({ lat, lng, location }: { [key: string]: any }) => {
-        setMarker({ lat, lng, location });
-        setCoords({ lat, lng, location });
-        const result = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m`
-        );
-        const json = await result.json();
-        const temperature = {
-          value: json.current.temperature_2m as number,
-          units: json.current_units.temperature_2m as string,
-        };
-        const wind_speed = {
-          value: json.current.wind_speed_10m as number,
-          units: json.current_units.wind_speed_10m as string,
-        };
-        setMarker({ lat, lng, location, temperature, wind_speed });
+      async ({ textQuery }: { textQuery: string }) => {
+        const googleMaps = googleMapsClientRef.current;
+        const json = await googleMaps.getPlace(textQuery);
         return json;
+      }
+    );
+    client.addTool(
+      {
+        name: 'get_route',
+        // description: `Retrieves the routes for a given both origin's coordinates and destination's coordinates.`,
+        description: `Retrieves the routes for a given both origin location's formattedAddress and destination location's formattedAddress.`,
+        parameters: {
+          type: 'object',
+          properties: {
+            originFormattedAddress: {
+              type: 'string',
+              description: 'formattedAddress of the origin location',
+            },
+            destinationFormattedAddress: {
+              type: 'string',
+              description: 'formattedAddress of the destination location',
+            },
+          },
+          required: ['originFormattedAddress', 'destinationFormattedAddress'],
+        },
+      },
+      async ({
+        originFormattedAddress,
+        destinationFormattedAddress,
+      }: {
+        originFormattedAddress: string;
+        destinationFormattedAddress: string;
+      }) => {
+        const googleMaps = googleMapsClientRef.current;
+        const res = await googleMaps.getRoute(
+          originFormattedAddress,
+          destinationFormattedAddress
+        );
+
+        const coords: Coordinates = {
+          lat: res.routes[0].legs[0].steps[0].startLocation.latLng.latitude,
+          lng: res.routes[0].legs[0].steps[0].startLocation.latLng.longitude,
+          location: destinationFormattedAddress,
+        };
+
+        setCoords(coords);
+
+        const marker: Coordinates = {
+          lat: res.routes[0].legs[0].steps[0].endLocation.latLng.latitude,
+          lng: res.routes[0].legs[0].steps[0].endLocation.latLng.longitude,
+          location: destinationFormattedAddress,
+        };
+
+        setMarker(marker);
+
+        const steps = res.routes[0].legs[0].steps.map((step: any) => {
+          return {
+            instruction: step.navigationInstruction,
+            distance: step.localizedValues.distance.text,
+            duration: step.localizedValues.staticDuration.text,
+          };
+        });
+
+        return steps;
       }
     );
 
@@ -511,12 +591,23 @@ export function ConsolePage() {
           <span>realtime console</span>
         </div>
         <div className="content-api-key">
+          <Button
+            icon={Edit}
+            iconPosition="end"
+            buttonStyle="flush"
+            // label={`Google Map API Key: ${googleMapApiKey.slice(0, 3)}...`}
+            label={`Google Map API Key`}
+            onClick={() => resetGoogleMapAPIKey()}
+          />
+        </div>
+        <div className="content-api-key">
           {!LOCAL_RELAY_SERVER_URL && (
             <Button
               icon={Edit}
               iconPosition="end"
               buttonStyle="flush"
-              label={`api key: ${apiKey.slice(0, 3)}...`}
+              // label={`OpenAI API Key: ${apiKey.slice(0, 3)}...`}
+              label={`OpenAI API Key`}
               onClick={() => resetAPIKey()}
             />
           )}
@@ -671,13 +762,22 @@ export function ConsolePage() {
             />
             <div className="spacer" />
             {isConnected && canPushToTalk && (
-              <Button
-                label={isRecording ? 'release to send' : 'push to talk'}
-                buttonStyle={isRecording ? 'alert' : 'regular'}
-                disabled={!isConnected || !canPushToTalk}
-                onMouseDown={startRecording}
-                onMouseUp={stopRecording}
-              />
+              <>
+                <Button
+                  label={isRecording ? 'release to send' : 'push to talk'}
+                  buttonStyle={isRecording ? 'alert' : 'regular'}
+                  disabled={!isConnected || !canPushToTalk}
+                  onMouseDown={startRecording}
+                  onMouseUp={stopRecording}
+                />
+                <Button
+                  label="debug"
+                  iconPosition="start"
+                  icon={Zap}
+                  buttonStyle="flush"
+                  onClick={debug}
+                />
+              </>
             )}
             <div className="spacer" />
             <Button
@@ -693,7 +793,7 @@ export function ConsolePage() {
         </div>
         <div className="content-right">
           <div className="content-block map">
-            <div className="content-block-title">get_weather()</div>
+            {/* <div className="content-block-title">get_weather()</div> */}
             <div className="content-block-title bottom">
               {marker?.location || 'not yet retrieved'}
               {!!marker?.temperature && (
