@@ -27,6 +27,7 @@ import { Map } from '../components/Map';
 
 import './ConsolePage.scss';
 import { isJsxOpeningLikeElement, OrganizeImportsMode } from 'typescript';
+import { DigitalHuman } from '../components/DigitalHuman';
 
 /**
  * Type for result from get_weather() function call
@@ -130,6 +131,8 @@ export function ConsolePage() {
   const [expandedEvents, setExpandedEvents] = useState<{
     [key: string]: boolean;
   }>({});
+  const [isDIDConnect, setIsDIDConnect] = useState(false);
+  const [DIDContent, setDIDContent] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [canPushToTalk, setCanPushToTalk] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
@@ -197,6 +200,7 @@ export function ConsolePage() {
     // Set state variables
     startTimeRef.current = new Date().toISOString();
     setIsConnected(true);
+    setIsDIDConnect(true)
     setRealtimeEvents([]);
     setItems(client.conversation.getItems());
 
@@ -226,6 +230,7 @@ export function ConsolePage() {
    */
   const disconnectConversation = useCallback(async () => {
     setIsConnected(false);
+    setIsDIDConnect(false)
     setRealtimeEvents([]);
     setItems([]);
     setMemoryKv({});
@@ -558,9 +563,10 @@ export function ConsolePage() {
     });
     client.on('conversation.updated', async ({ item, delta }: any) => {
       const items = client.conversation.getItems();
-      if (delta?.audio) {
-        wavStreamPlayer.add16BitPCM(delta.audio, item.id);
-      }
+      // console.log('delta', delta, item);
+      // if (delta?.audio) {
+      //   wavStreamPlayer.add16BitPCM(delta.audio, item.id);
+      // }
       if (item.status === 'completed' && item.formatted.audio?.length) {
         const wavFile = await WavRecorder.decode(
           item.formatted.audio,
@@ -568,7 +574,11 @@ export function ConsolePage() {
           24000
         );
         item.formatted.file = wavFile;
+        if (item.role === 'assistant' && item.formatted.transcript?.length) {
+          setDIDContent(item.formatted.transcript);
+        }
       }
+
       setItems(items);
     });
 
@@ -792,7 +802,13 @@ export function ConsolePage() {
           </div>
         </div>
         <div className="content-right">
+
           <div className="content-block map">
+            <DigitalHuman
+              isTriggerConnect={ isDIDConnect }
+              audioUrl={ '' }
+              textContent={DIDContent }
+            />
             {/* <div className="content-block-title">get_weather()</div> */}
             <div className="content-block-title bottom">
               {marker?.location || 'not yet retrieved'}
