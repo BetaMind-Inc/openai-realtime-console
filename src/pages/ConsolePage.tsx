@@ -563,7 +563,6 @@ export function ConsolePage() {
     });
     client.on('conversation.updated', async ({ item, delta }: any) => {
       const items = client.conversation.getItems();
-      // console.log('delta', delta, item);
       // if (delta?.audio) {
       //   wavStreamPlayer.add16BitPCM(delta.audio, item.id);
       // }
