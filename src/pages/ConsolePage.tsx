@@ -28,6 +28,7 @@ import { Map } from '../components/Map';
 import './ConsolePage.scss';
 import { isJsxOpeningLikeElement, OrganizeImportsMode } from 'typescript';
 // import { DigitalHuman } from '../components/DigitalHuman';
+import { langMap } from '../constants';
 
 /**
  * Type for result from get_weather() function call
@@ -118,6 +119,7 @@ export function ConsolePage() {
   const eventsScrollHeightRef = useRef(0);
   const eventsScrollRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<string>(new Date().toISOString());
+  const langRef = useRef<keyof typeof langMap>('jp');
 
   /**
    * All of our variables for displaying application state
@@ -200,7 +202,7 @@ export function ConsolePage() {
     // Set state variables
     startTimeRef.current = new Date().toISOString();
     setIsConnected(true);
-    setIsDIDConnect(true)
+    setIsDIDConnect(true);
     setRealtimeEvents([]);
     setItems(client.conversation.getItems());
 
@@ -212,11 +214,13 @@ export function ConsolePage() {
 
     // Connect to realtime API
     await client.connect();
+
+    const langObj = langMap[langRef.current];
+
     client.sendUserMessageContent([
       {
         type: `input_text`,
-        text: `Hello!`,
-        // text: `For testing purposes, I want you to list ten car brands. Number each item, e.g. "one (or whatever number you are one): the item name".`
+        text: langObj.message.hello,
       },
     ]);
 
@@ -230,7 +234,7 @@ export function ConsolePage() {
    */
   const disconnectConversation = useCallback(async () => {
     setIsConnected(false);
-    setIsDIDConnect(false)
+    setIsDIDConnect(false);
     setRealtimeEvents([]);
     setItems([]);
     setMemoryKv({});
@@ -300,6 +304,26 @@ export function ConsolePage() {
     }
     setCanPushToTalk(value === 'none');
   };
+
+  /**
+   * Switch language mode
+   */
+  const changeLang = useCallback(
+    async (value: keyof typeof langMap) => {
+      langRef.current = value;
+      if (isConnected) {
+        const client = clientRef.current;
+        const langObj = langMap[value];
+        client.sendUserMessageContent([
+          {
+            type: `input_text`,
+            text: langObj.message.switch,
+          },
+        ]);
+      }
+    },
+    [isConnected]
+  );
 
   /**
    * Debug for tool:
@@ -622,6 +646,18 @@ export function ConsolePage() {
             />
           )}
         </div>
+        <div>
+          <select
+            defaultValue={langRef.current}
+            onChange={(e) => changeLang(e.target.value as keyof typeof langMap)}
+          >
+            {Object.entries(langMap).map(([key, value]) => (
+              <option key={key} value={key}>
+                {value.jp.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className="content-main">
         <div className="content-logs">
@@ -802,7 +838,6 @@ export function ConsolePage() {
           </div>
         </div>
         <div className="content-right">
-
           <div className="content-block map">
             {/* <DigitalHuman
               isTriggerConnect={ isDIDConnect }
