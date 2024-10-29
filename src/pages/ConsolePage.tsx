@@ -27,7 +27,7 @@ import { Map } from '../components/Map';
 
 import './ConsolePage.scss';
 import { isJsxOpeningLikeElement, OrganizeImportsMode } from 'typescript';
-import { DigitalHuman } from '../components/DigitalHuman';
+// import { DigitalHuman } from '../components/DigitalHuman';
 
 /**
  * Type for result from get_weather() function call
@@ -564,9 +564,9 @@ export function ConsolePage() {
     client.on('conversation.updated', async ({ item, delta }: any) => {
       const items = client.conversation.getItems();
       // console.log('delta', delta, item);
-      // if (delta?.audio) {
-      //   wavStreamPlayer.add16BitPCM(delta.audio, item.id);
-      // }
+      if (delta?.audio) {
+        wavStreamPlayer.add16BitPCM(delta.audio, item.id);
+      }
       if (item.status === 'completed' && item.formatted.audio?.length) {
         const wavFile = await WavRecorder.decode(
           item.formatted.audio,
@@ -574,9 +574,9 @@ export function ConsolePage() {
           24000
         );
         item.formatted.file = wavFile;
-        if (item.role === 'assistant' && item.formatted.transcript?.length) {
-          setDIDContent(item.formatted.transcript);
-        }
+        // if (item.role === 'assistant' && item.formatted.transcript?.length) {
+        //   setDIDContent(item.formatted.transcript);
+        // }
       }
 
       setItems(items);
@@ -804,11 +804,11 @@ export function ConsolePage() {
         <div className="content-right">
 
           <div className="content-block map">
-            <DigitalHuman
+            {/* <DigitalHuman
               isTriggerConnect={ isDIDConnect }
               audioUrl={ '' }
               textContent={DIDContent }
-            />
+            /> */}
             {/* <div className="content-block-title">get_weather()</div> */}
             <div className="content-block-title bottom">
               {marker?.location || 'not yet retrieved'}
