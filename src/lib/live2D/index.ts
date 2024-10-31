@@ -22,7 +22,17 @@ export class Live2DClient {
     this.app = app;
     (window as any).app = app
     this.model = await PixiLiv2D.Live2DModel.from('./Haru/Haru.model3.json')
+    this.model.rotation = Math.PI;
+    this.model.skew.x = Math.PI;
+    this.model.scale.set(0.65);
+    this.model.anchor.set(0.5, 0.5);
+    this.model.position.set(window.innerWidth / 2, window.innerHeight / 0.85 - 5);
     this.app.stage.addChild(this.model  as unknown as PIXI.DisplayObject);
+    let background = new PIXI.Graphics();
+    background.beginFill(0xFFA500); // Orange color
+    background.drawRect(0, 0, app.screen.width, app.screen.height);
+    background.endFill();
+    app.stage.addChildAt(background as unknown as PIXI.DisplayObject, 0); // Add the background first
   }
 
   async handleSpeak(link: string) {
