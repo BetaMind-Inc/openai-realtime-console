@@ -823,8 +823,8 @@ export function ConsolePage() {
         <div className="content-right">
 
           <div className="content-block map">
-            <canvas id="live2d"  width="300" height="300"></canvas>
-            <button onClick={() => live2DClient.current.handleSpeak("./song.mp3")}>click</button>
+            <canvas id="live2d"  width="300" height="500"></canvas>
+            <button onClick={() => live2DClient.current.handleSpeak("./song.mp3")}>click to play song</button>
             {/* <div className="content-block-title">get_weather()</div> */}
             <div className="content-block-title bottom">
               {marker?.location || 'not yet retrieved'}

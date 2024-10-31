@@ -25,7 +25,7 @@ export class Live2DClient {
     this.model.skew.x = Math.PI;
     this.model.scale.set(0.65);
     this.model.anchor.set(0.5, 0.5);
-    this.model.position.set(window.innerWidth / 2, window.innerHeight / 0.85 - 5);
+    this.model.position.set(window.innerWidth / 2, 1400);
     app.stage.addChild(this.model  as unknown as PIXI.DisplayObject);
     let background = new PIXI.Graphics();
     background.beginFill(0xFFA500); // Orange color
@@ -50,8 +50,10 @@ export class Live2DClient {
         resetExpression:resetExpression,
         crossOrigin: crossOrigin,
         onFinish: () => {
-          setTimeout(() => {
+          this.model?.stopSpeaking()
+          const timeout = setTimeout(() => {
             this.playQueue()
+            clearTimeout(timeout)
           }, 0)
         }
     })
@@ -60,13 +62,17 @@ export class Live2DClient {
   addToQueue(link: string) {
     this.audiQueue.push(link);
     if (!this.isPlaying) {
+      this.isPlaying = true;
       this.playQueue()
+      // const delay = setTimeout(() => {
+      //   this.playQueue()
+      //   clearTimeout(delay)
+      // }, 500)
     }
   }
 
   playQueue() {
     if (this.audiQueue.length > 0) {
-      this.isPlaying = true;
       this.handleSpeak(this.audiQueue.shift() as string);
     } else {
       this.isPlaying = false;
