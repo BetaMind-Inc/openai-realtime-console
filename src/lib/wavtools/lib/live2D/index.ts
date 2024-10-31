@@ -1,0 +1,63 @@
+import * as PIXI from 'pixi.js';
+import * as PixiLiv2D from 'pixi-live2d-display-lipsyncpatch'
+PixiLiv2D.Live2DModel.registerTicker(PIXI.Ticker)
+
+export class Live2DClient {
+  modelURL: string
+  model: PixiLiv2D.Live2DModel<PixiLiv2D.InternalModel> | undefined;
+  app: PIXI.Application | undefined;
+  audiQueue: string[] = [];
+  isPlaying: boolean = false;
+
+  constructor() {
+    this.modelURL = './Haru/Haru.model3.json'
+  }
+
+  async initLive2D() {
+    const app = new PIXI.Application({
+      view: document.getElementById('live2d') as HTMLCanvasElement,
+      autoStart: true,
+      resizeTo: window
+    });
+    this.app = app;
+    (window as any).app = app
+    this.model = await PixiLiv2D.Live2DModel.from('./Haru/Haru.model3.json')
+    this.app.stage.addChild(this.model  as unknown as PIXI.DisplayObject);
+  }
+
+  async handleSpeak(link: string) {
+    var volume = 1; // [Optional arg, can be null or empty] [0.0 - 1.0]
+    var expression = 4; // [Optional arg, can be null or empty] [index|name of expression]
+    var resetExpression = true; // [Optional arg, can be null or empty] [true|false] [default: true] [if true, expression will be reset to default after animation is over]
+    var crossOrigin = "anonymous";
+    await this.model?.speak(
+      link,
+      {
+        volume: volume,
+        expression:expression,
+        resetExpression:resetExpression,
+        crossOrigin: crossOrigin,
+        onFinish: () => {
+          setTimeout(() => {
+            this.playQueue()
+          }, 0)
+        }
+    })
+  }
+
+  addToQueue(link: string) {
+    this.audiQueue.push(link);
+    if (!this.isPlaying) {
+      this.playQueue()
+    }
+  }
+
+  playQueue() {
+    if (this.audiQueue.length > 0) {
+      this.isPlaying = true;
+      this.handleSpeak(this.audiQueue.shift() as string);
+    } else {
+      this.isPlaying = false;
+    }
+  }
+}

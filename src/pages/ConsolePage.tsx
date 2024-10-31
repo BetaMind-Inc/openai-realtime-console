@@ -28,6 +28,7 @@ import { Map } from '../components/Map';
 import './ConsolePage.scss';
 import { isJsxOpeningLikeElement, OrganizeImportsMode } from 'typescript';
 import { DigitalHuman } from '../components/DigitalHuman';
+import { Live2DClient } from '../lib/wavtools/lib/live2D';
 
 /**
  * Type for result from get_weather() function call
@@ -91,6 +92,7 @@ export function ConsolePage() {
   const wavStreamPlayerRef = useRef<WavStreamPlayer>(
     new WavStreamPlayer({ sampleRate: 24000 })
   );
+  const live2DClient = useRef<Live2DClient>(new Live2DClient());
   const clientRef = useRef<RealtimeClient>(
     new RealtimeClient(
       LOCAL_RELAY_SERVER_URL
@@ -127,6 +129,7 @@ export function ConsolePage() {
    * - coords, marker are for get_weather() function
    */
   const [items, setItems] = useState<ItemType[]>([]);
+  const [isStartLive2D, setIsStartLive2D] = useState(false);
   const [realtimeEvents, setRealtimeEvents] = useState<RealtimeEvent[]>([]);
   const [expandedEvents, setExpandedEvents] = useState<{
     [key: string]: boolean;
@@ -134,6 +137,7 @@ export function ConsolePage() {
   const [isDIDConnect, setIsDIDConnect] = useState(false);
   const [DIDContent, setDIDContent] = useState('');
   const [isConnected, setIsConnected] = useState(false);
+  const [audio, setAudio] = useState<any[]>([]);
   const [canPushToTalk, setCanPushToTalk] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [memoryKv, setMemoryKv] = useState<{ [key: string]: any }>({});
@@ -356,8 +360,10 @@ export function ConsolePage() {
 
     const wavStreamPlayer = wavStreamPlayerRef.current;
     const serverCanvas = serverCanvasRef.current;
+    const live2D = live2DClient.current;
     let serverCtx: CanvasRenderingContext2D | null = null;
 
+    live2D.initLive2D()
     const render = () => {
       if (isLoaded) {
         if (clientCanvas) {
@@ -393,6 +399,7 @@ export function ConsolePage() {
             const result = wavStreamPlayer.analyser
               ? wavStreamPlayer.getFrequencies('voice')
               : { values: new Float32Array([0]) };
+
             WavRenderer.drawBars(
               serverCanvas,
               serverCtx,
@@ -563,15 +570,28 @@ export function ConsolePage() {
     });
     client.on('conversation.updated', async ({ item, delta }: any) => {
       const items = client.conversation.getItems();
-      // if (delta?.audio) {
-      //   wavStreamPlayer.add16BitPCM(delta.audio, item.id);
-      // }
+      if (delta?.audio) {
+        const wavFile = await WavRecorder.decode(
+          delta.audio,
+          24000,
+          24000
+        );
+        live2DClient.current.addToQueue(wavFile.url)
+        // wavStreamPlayer.add16BitPCM(delta.audio, item.id);
+        setAudio(prev => {
+          return [...prev, wavFile.url];
+        });
+        if (!isStartLive2D) {
+          setIsStartLive2D(true);
+        }
+      }
       if (item.status === 'completed' && item.formatted.audio?.length) {
         const wavFile = await WavRecorder.decode(
           item.formatted.audio,
           24000,
           24000
         );
+        setIsStartLive2D(false);
         item.formatted.file = wavFile;
         if (item.role === 'assistant' && item.formatted.transcript?.length) {
           setDIDContent(item.formatted.transcript);
@@ -803,11 +823,8 @@ export function ConsolePage() {
         <div className="content-right">
 
           <div className="content-block map">
-            <DigitalHuman
-              isTriggerConnect={ isDIDConnect }
-              audioUrl={ '' }
-              textContent={DIDContent }
-            />
+            <canvas id="live2d"  width="300" height="300"></canvas>
+            <button onClick={() => live2DClient.current.handleSpeak("./song.mp3")}>click</button>
             {/* <div className="content-block-title">get_weather()</div> */}
             <div className="content-block-title bottom">
               {marker?.location || 'not yet retrieved'}
