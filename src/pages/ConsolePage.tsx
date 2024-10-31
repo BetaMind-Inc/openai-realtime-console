@@ -28,7 +28,7 @@ import { Map } from '../components/Map';
 import './ConsolePage.scss';
 import { isJsxOpeningLikeElement, OrganizeImportsMode } from 'typescript';
 import { DigitalHuman } from '../components/DigitalHuman';
-import { Live2DClient } from '../lib/wavtools/lib/live2D';
+import { Live2DClient } from '../lib/live2D';
 
 /**
  * Type for result from get_weather() function call

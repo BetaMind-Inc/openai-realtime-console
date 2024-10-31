@@ -21,7 +21,7 @@ export class Live2DClient {
     });
     this.app = app;
     (window as any).app = app
-    this.model = await PixiLiv2D.Live2DModel.from('./Haru/Haru.model3.json')
+    this.model = await PixiLiv2D.Live2DModel.from('https://spice-dev-bucket.s3.ap-northeast-1.amazonaws.com/avatar/Haru/Haru.model3.json')
     this.app.stage.addChild(this.model  as unknown as PIXI.DisplayObject);
   }
 
